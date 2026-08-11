@@ -237,6 +237,29 @@ main{max-width:860px;margin:0 auto;padding:18px 14px 132px}
 /* ============================================================
    CERTIFICATE — readable on screen, becomes the page on print
    ============================================================ */
+
+/* ---------- ACCESS GATE ---------- */
+#viewGate{display:none}
+#viewGate.on{display:block}
+.gate-wrap{max-width:440px;margin:0 auto;padding:34px 18px 60px}
+.gate-mark{width:54px;height:54px;border-radius:14px;background:linear-gradient(140deg,var(--petrol),var(--flame));
+  display:flex;align-items:center;justify-content:center;margin-bottom:20px}
+.gate-mark span{font-family:var(--mono);font-size:19px;font-weight:800;color:#fff;letter-spacing:.02em}
+.gate-wrap h1{font-size:25px;font-weight:800;letter-spacing:-.02em;margin:0 0 7px}
+.gate-wrap .sub{color:var(--slate);font-size:15.5px;margin:0 0 24px;line-height:1.5}
+.gate-card{background:var(--card);border:1px solid var(--rule);border-radius:var(--r);padding:18px}
+.gate-card input{width:100%;min-height:56px;padding:12px 14px;font-family:var(--mono);
+  font-size:19px;letter-spacing:.08em;text-transform:uppercase;text-align:center;
+  border:1.5px solid var(--rule-strong);border-radius:var(--r);background:var(--card);color:var(--ink)}
+.gate-card input:focus{border-color:var(--flame);outline:none;box-shadow:0 0 0 3px var(--flame-soft)}
+.gate-card input.bad{border-color:var(--fail);background:var(--fail-soft)}
+.gate-msg{font-size:14px;margin-top:11px;min-height:20px}
+.gate-msg.err{color:var(--fail);font-weight:650}
+.gate-btn{width:100%;min-height:54px;margin-top:13px;border:0;border-radius:var(--r);
+  background:linear-gradient(180deg,#1568C9,#0D5BB5);color:#fff;
+  font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+.gate-foot{margin-top:22px;font-size:14px;color:var(--slate);line-height:1.55}
+.gate-foot b{color:var(--ink)}
 .logo-box{height:96px;border:1.5px dashed var(--rule-strong);border-radius:var(--r);background:var(--card);
   display:flex;align-items:center;justify-content:center;overflow:hidden;padding:8px}
 .logo-box img{max-height:100%;max-width:100%;object-fit:contain}
@@ -468,6 +491,26 @@ main{max-width:860px;margin:0 auto;padding:18px 14px 132px}
 </div>
 
 
+
+<!-- ================= ACCESS GATE ================= -->
+<div class="view" id="viewGate">
+  <div class="gate-wrap">
+    <div class="gate-mark"><span>CP12</span></div>
+    <h1>Gas Safety Records</h1>
+    <p class="sub">Issue landlord gas safety records on your phone or tablet, and keep every certificate
+      you've issued in one searchable place.</p>
+    <div class="gate-card">
+      <label class="qlabel" for="gateCode">Enter your access code</label>
+      <input id="gateCode" type="text" inputmode="latin" autocapitalize="characters"
+             autocorrect="off" spellcheck="false" autocomplete="acx-1" placeholder="XXXX-XXXX-XXXX">
+      <div class="gate-msg" id="gateMsg"></div>
+      <button class="gate-btn" id="gateGo" type="button">Continue</button>
+    </div>
+    <p class="gate-foot"><b>No code yet?</b> Access is by request. Ask whoever shared this link with you
+      for a code of your own &mdash; codes are issued individually and shouldn't be passed on.</p>
+  </div>
+</div>
+
 <!-- ================= BUSINESS PROFILE ================= -->
 <div class="view" id="viewProfile">
   <main>
@@ -556,6 +599,7 @@ main{max-width:860px;margin:0 auto;padding:18px 14px 132px}
   </main>
   <nav class="navbar">
     <button class="btn btn-ghost" id="certDone" type="button">Done</button>
+    <button class="btn btn-ghost" id="certIcs" type="button">Reminder</button>
     <button class="btn btn-ghost" id="certMail" type="button">Email</button>
     <button class="btn btn-main" id="certPrint" type="button">Save as PDF</button>
   </nav>
@@ -950,7 +994,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
    banner telling the user what they've lost.
    ============================================================ */
 var STORE = (function(){
-  var KEY = "plumbrite.cp12.v1", mem = null, ok = false;
+  var KEY = "cp12.records.v1", mem = null, ok = false;
   try{
     localStorage.setItem(KEY+".probe","1"); localStorage.removeItem(KEY+".probe"); ok = true;
   }catch(e){ ok = false; }
@@ -1104,6 +1148,7 @@ function renderArchive(){
       if(a==="pdf")    { showCert(rec, false); }
       else if(a==="repeat"){ openEditor(rec, true); }
       else if(a==="chase") { chase(rec); }
+      else if(a==="ics")   { shareIcs(rec); }
       else if(a==="del")   { confirmDelete(rec); }
     });
   });
@@ -1124,6 +1169,7 @@ function row(r){
     + '<button data-act="pdf" data-id="'+esc(r.id)+'">View certificate</button>'
     + '<button class="pri" data-act="repeat" data-id="'+esc(r.id)+'">Repeat this year</button>'
     + (r.l_email ? '<button data-act="chase" data-id="'+esc(r.id)+'">Email landlord</button>' : "")
+    + '<button data-act="ics" data-id="'+esc(r.id)+'">Send reminder</button>' 
     + '<button class="dgr" data-act="del" data-id="'+esc(r.id)+'">Delete</button>'
     + "</div></div>";
 }
@@ -1245,6 +1291,7 @@ $("#btnMore").addEventListener("click", function(){
   sheet(((DB.profile||{}).e_co) || "Gas safety records",
     "Records are held on this device only. Nothing is sent anywhere.", [
     {label:"Business details and logos", sub:"Update when your registration renews", go:function(){ closeSheet(); openProfile(false); }},
+    {label:"Access code", sub:((DB.access&&DB.access.code&&DB.access.code!=="EXISTING") ? gateFormat(DB.access.code) : "Issued before codes were introduced"), go:closeSheet},
     {label:"Back up or restore", sub:"", go:function(){ closeSheet(); $("#btnBackup").click(); }},
     {label:"Check this device", sub:"Test that saving, printing and email work here", go:selfCheck},
     {label:"Close", sub:"", go:closeSheet}
@@ -2191,6 +2238,27 @@ function emailBody(r){
     + "\nGas Safe registration " + (r.e_reg||"");
 }
 
+function icsName(r){
+  var a = (r.p_addr||"property").replace(/[^A-Za-z0-9 ]/g,"").trim().replace(/\s+/g,"-");
+  return "Gas-check-due-" + a + ".ics";
+}
+function shareIcs(r){
+  var ics = makeIcs(r); if(!ics) return;
+  var e = expiry(r.date);
+  var addr = [r.p_addr, r.p_town, r.p_pc].filter(Boolean).join(", ");
+  var f = [new File([ics], icsName(r), {type:"text/calendar"})];
+  var note = "Here is a calendar reminder for the next gas safety check at " + addr
+    + (e ? ", due by " + fmt(e) : "")
+    + ". Opening it will add the date to your calendar and alert you a month beforehand.";
+  if(navigator.canShare && navigator.canShare({files:f})){
+    navigator.share({ files:f, title:"Gas safety check reminder - "+addr, text:note })
+      .catch(function(err){
+        if(err && err.name !== "AbortError") downloadBlob(new Blob([ics],{type:"text/calendar"}), icsName(r));
+      });
+  } else {
+    downloadBlob(new Blob([ics],{type:"text/calendar"}), icsName(r));
+  }
+}
 function sendCert(){
   var r = currentRec; if(!r) return;
   var addr = [r.p_addr, r.p_town, r.p_pc].filter(Boolean).join(", ");
@@ -2200,17 +2268,39 @@ function sendCert(){
   try{
     files.push(new File([makePdf(r).output("blob")], pdfName(r), {type:"application/pdf"}));
     var ics = makeIcs(r);
-    if(ics) files.push(new File([ics], "gas-check-due.ics", {type:"text/calendar"}));
+    if(ics) files.push(new File([ics], icsName(r), {type:"text/calendar"}));
   }catch(err){ files = []; }
 
-  var canFiles = files.length && navigator.canShare && navigator.canShare({files:files});
-  if(!canFiles && files.length > 1){
-    files = files.slice(0,1);
-    canFiles = navigator.canShare && navigator.canShare({files:files});
+  var canBoth = files.length > 1 && navigator.canShare && navigator.canShare({files:files});
+  if(canBoth){
+    navigator.share({ files:files, title:subject, text:body })
+      .catch(function(err){ if(err && err.name !== "AbortError") mailFallback(r, subject, body); });
+    return;
   }
 
-  if(canFiles){
-    navigator.share({ files:files, title:subject, text:body })
+  /* Some versions of iOS refuse a mixed set of attachments. Rather than
+     quietly dropping the reminder the landlord was promised, send them
+     one after the other and say so. */
+  var pdfOnly = files.slice(0,1);
+  var canPdf = pdfOnly.length && navigator.canShare && navigator.canShare({files:pdfOnly});
+  if(canPdf && files.length > 1){
+    sheet("Send in two steps",
+      "This iPad won't attach the certificate and the reminder together, so send the certificate first, "
+      + "then the reminder to the same message or a follow-up.", [
+      {label:"1. Send the certificate", sub:pdfName(r), go:function(){
+          closeSheet();
+          navigator.share({ files:pdfOnly, title:subject, text:body })
+            .catch(function(err){ if(err && err.name !== "AbortError") mailFallback(r, subject, body); });
+        }},
+      {label:"2. Send the reminder", sub:"Alerts them a month before it expires", go:function(){
+          closeSheet(); shareIcs(r);
+        }},
+      {label:"Cancel", sub:"", go:closeSheet}
+    ]);
+    return;
+  }
+  if(canPdf){
+    navigator.share({ files:pdfOnly, title:subject, text:body })
       .catch(function(err){ if(err && err.name !== "AbortError") mailFallback(r, subject, body); });
     return;
   }
@@ -2222,11 +2312,11 @@ function sendCert(){
 function mailFallback(r, subject, body){
   sheet("Attach it yourself on this device",
     "This browser won't hand files straight to Mail. Save the certificate, then attach it to the draft.", [
-    {label:"Save certificate and reminder", sub:"Both land in your downloads", go:function(){
+    {label:"Save certificate and reminder", sub:"Both land in your downloads, ready to attach", go:function(){
         try{
           downloadBlob(makePdf(r).output("blob"), pdfName(r));
           var ics = makeIcs(r);
-          if(ics) setTimeout(function(){ downloadBlob(new Blob([ics],{type:"text/calendar"}), "gas-check-due.ics"); }, 700);
+          if(ics) setTimeout(function(){ downloadBlob(new Blob([ics],{type:"text/calendar"}), icsName(r)); }, 700);
         }catch(err){}
       }},
     {label:"Open the draft message", sub:"Wording is written for you", go:function(){
@@ -2262,6 +2352,7 @@ function exportReminders(){
 /* ---------- certificate view actions ---------- */
 $("#certPrint").addEventListener("click", savePdf);
 $("#certMail").addEventListener("click", sendCert);
+$("#certIcs").addEventListener("click", function(){ if(currentRec) shareIcs(currentRec); });
 $("#certDone").addEventListener("click", function(){
   $("#viewCert").classList.remove("on"); currentRec = null; closeEditor();
 });
@@ -2404,6 +2495,86 @@ $$("[data-clearlogo]").forEach(function(b){
   });
 });
 
+
+/* ============================================================
+   ACCESS CODES
+   Each engineer gets their own code, checked offline so the app
+   still works with no signal. The code carries a short identifier
+   so a shared code is visible in the app and on backups.
+
+   Honest limits: the check runs on the device, so a determined
+   person could work it out, and a code can't be withdrawn once
+   issued. It stops casual forwarding, not a determined user.
+   ============================================================ */
+var GATE_SECRET = "cp12-records-2026-k9x4m2";   /* change this to invalidate every unissued code */
+var GATE_ALPHA  = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";  /* no I,O,0,1 — misread on paper */
+
+function gateHash(str){
+  /* FNV-1a, 32-bit — small, deterministic, and identical in the generator */
+  var h = 0x811c9dc5;
+  for(var i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h = (h + ((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24))) >>> 0;
+  }
+  return h >>> 0;
+}
+function gateBlock(seed){
+  var h = gateHash(seed), out = "";
+  for(var i=0;i<4;i++){ out += GATE_ALPHA.charAt(h % GATE_ALPHA.length); h = Math.floor(h / GATE_ALPHA.length) + 7919; }
+  return out;
+}
+function gateNormalise(code){
+  return String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+}
+/* A valid code is 12 characters: 8 identifying the holder, 4 proving it came from you. */
+function gateCheck(code){
+  var c = gateNormalise(code);
+  if(c.length !== 12) return null;
+  var body = c.slice(0,8), sum = c.slice(8);
+  if(gateBlock(GATE_SECRET + "|" + body) !== sum) return null;
+  return body;
+}
+function gateFormat(code){
+  var c = gateNormalise(code);
+  return c.replace(/(.{4})(.{4})(.{4})/, "$1-$2-$3");
+}
+
+function gateOpen(){
+  $$(".view").forEach(function(v){ v.classList.remove("on"); });
+  $("#viewGate").classList.add("on");
+  var tb = $(".topbar"); if(tb) tb.style.display = "none";
+  setTimeout(function(){ var el = $("#gateCode"); if(el) el.focus(); }, 60);
+}
+function gatePass(){
+  var tb = $(".topbar"); if(tb) tb.style.display = "";
+  $("#viewGate").classList.remove("on");
+  applyBrand();
+  if(!profileComplete()) openProfile(true); else { $("#viewArchive").classList.add("on"); renderArchive(); }
+}
+function gateSubmit(){
+  var el = $("#gateCode"), msg = $("#gateMsg");
+  var holder = gateCheck(el.value);
+  if(!holder){
+    el.classList.add("bad");
+    msg.className = "gate-msg err";
+    msg.textContent = gateNormalise(el.value).length === 12
+      ? "That code isn't recognised. Check it against the message you were sent."
+      : "A code is 12 characters, like ABCD-EFGH-JKLM.";
+    return;
+  }
+  DB.access = { code: gateNormalise(el.value), holder: holder, since: Date.now() };
+  if(!saveDB()) return;
+  msg.className = "gate-msg"; msg.textContent = "";
+  el.classList.remove("bad");
+  gatePass();
+}
+$("#gateGo").addEventListener("click", gateSubmit);
+$("#gateCode").addEventListener("keydown", function(e){ if(e.key === "Enter") gateSubmit(); });
+$("#gateCode").addEventListener("input", function(){
+  this.classList.remove("bad");
+  $("#gateMsg").textContent = "";
+});
+
 /* ---------- device self-check ---------- */
 function selfCheck(){
   var rows = [
@@ -2448,6 +2619,14 @@ if(!DB.profile && DB.engineer){
     .forEach(function(f){ DB.profile[f] = DB.engineer[f] || ""; });
   saveDB();
 }
+/* Anyone already set up on an earlier version keeps working — the
+   gate is for new arrivals, not for locking out existing users. */
+if(!DB.access && (DB.profile || (DB.records && DB.records.length))){
+  DB.access = { code:"EXISTING", holder:"EXISTING", since: Date.now() };
+  saveDB();
+}
 applyBrand();
-if(!profileComplete()) openProfile(true); else renderArchive();
+if(!DB.access) gateOpen();
+else if(!profileComplete()) openProfile(true);
+else renderArchive();
 </script>
